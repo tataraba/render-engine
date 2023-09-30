@@ -13,6 +13,7 @@ from rich.progress import Progress
 
 from render_engine.engine import engine
 from render_engine.site import Site
+from render_engine.watcher.event import RenderEngineHandler
 
 app = typer.Typer()
 
@@ -155,7 +156,7 @@ def init(
 ):
     """
     CLI for creating a new site configuration.
-    
+
     Params:
         collection_path: create your content folder in a custom location
         force: Force overwrite of existing files
@@ -265,7 +266,7 @@ def build(site_module: str):
 
     Params:
         site_module: module and class name of the site
-    
+
     """
     app = get_app(site_module)
     app.render()
@@ -285,6 +286,12 @@ def serve(
         "-d",
         help="Directory to serve",
         show_default=False,
+    ),
+    reload: typing.Optional[bool] = typer.Option(
+        None,
+        "--reload",
+        "-r",
+        help="Reload the server when files change",
     ),
     port: int = typer.Option(
         8000,
@@ -322,12 +329,23 @@ def serve(
         def __init__(self, *args, **kwargs):
             super().__init__(*args, directory=directory, **kwargs)
 
-    server_address = ("localhost", port)
-    httpd = HTTPServer(server_address, server)
     console = Console()
-    console.print(f"Serving [blue]{directory} on http://{server_address[0]}:{server_address[1]}")
-    console.print("Press [bold red]CTRL+C[/bold red] to stop serving")
-    return httpd.serve_forever()
+    server_address = ("localhost", port)
+
+    # could use handler to start sever here too
+
+    if not reload:
+
+        httpd = HTTPServer(server_address, server)
+        console.print(f"Serving [blue]{directory} on http://{server_address[0]}:{server_address[1]}")
+        console.print("Press [bold red]CTRL+C[/bold red] to stop serving!!!!")
+        return httpd.serve_forever()
+
+
+    handler = RenderEngineHandler(HTTPServer, server, server_address)
+    handler.start_server()
+    console.print('WATCHING')
+    handler.watch()
 
 
 def cli():
