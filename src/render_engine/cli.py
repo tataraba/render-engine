@@ -13,7 +13,7 @@ from rich.progress import Progress
 
 from render_engine.engine import engine
 from render_engine.site import Site
-from render_engine.watcher import RenderEngineFileEventHandler, RenderEngineServer, Watcher
+from render_engine.watcher import RegExHandler, RenderEngineServer, Watcher
 
 app = typer.Typer()
 
@@ -325,22 +325,24 @@ def serve(
         else:
             directory = 'output'
 
-
     console = Console()
     server_address = ("localhost", port)
-
     server = HTTPServer(server_address, RenderEngineServer)
 
     if not reload:
         server.serve_forever()
     else:
         console.print("watch what happens next")
-        handler = RenderEngineFileEventHandler(server=server, server_address=server_address, app=app)
-        # server = handler.server
+        handler = RegExHandler(
+            render_engine_server=server,
+            server_address=server_address,
+            app=app,
+            patterns=[r".*\.md$"],  # Only watching for changes in .md files
+            ignore_patterns=None,
+        )
 
         w = Watcher(handler=handler, app=app)
         w.run()
-
 
 
 def cli():

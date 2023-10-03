@@ -1,1 +1,7 @@
-from .event import RenderEngineFileEventHandler, RenderEngineServer, Watcher
+from .event import RegExHandler, RenderEngineServer, Watcher
+
+__all__ = [
+    "RegExHandler",
+    "RenderEngineServer",
+    "Watcher",
+]
