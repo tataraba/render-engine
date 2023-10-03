@@ -326,19 +326,15 @@ def serve(
             directory = 'output'
 
 
-    Console()
+    console = Console()
     server_address = ("localhost", port)
 
     server = HTTPServer(server_address, RenderEngineServer)
 
-    def shutdown_server():
-        server.shutdown()
-        server.server_close()
-
     if not reload:
         server.serve_forever()
     else:
-        print("watch what happens next")
+        console.print("watch what happens next")
         handler = RenderEngineFileEventHandler(server=server, server_address=server_address, app=app)
         # server = handler.server
 
