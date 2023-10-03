@@ -4,7 +4,7 @@ import importlib
 import pathlib
 import sys
 import typing
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+from http.server import HTTPServer
 
 import dtyper
 import typer
@@ -13,7 +13,7 @@ from rich.progress import Progress
 
 from render_engine.engine import engine
 from render_engine.site import Site
-from render_engine.watcher.event import RenderEngineHandler
+from render_engine.watcher import RenderEngineFileEventHandler, RenderEngineServer, Watcher
 
 app = typer.Typer()
 
@@ -280,18 +280,18 @@ def serve(
         "-b",
         help="module:site for Build the site prior to serving",
     ),
+    reload: typing.Optional[bool] = typer.Option(
+        None,
+        "--reload",
+        "-r",
+        help="Reload the server when files change",
+    ),
     directory: typing.Optional[str] = typer.Option(
         None,
         "--directory",
         "-d",
         help="Directory to serve",
         show_default=False,
-    ),
-    reload: typing.Optional[bool] = typer.Option(
-        None,
-        "--reload",
-        "-r",
-        help="Reload the server when files change",
     ),
     port: int = typer.Option(
         8000,
@@ -325,27 +325,26 @@ def serve(
         else:
             directory = 'output'
 
-    class server(SimpleHTTPRequestHandler):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, directory=directory, **kwargs)
 
-    console = Console()
+    Console()
     server_address = ("localhost", port)
 
-    # could use handler to start sever here too
+    server = HTTPServer(server_address, RenderEngineServer)
+
+    def shutdown_server():
+        server.shutdown()
+        server.server_close()
 
     if not reload:
+        server.serve_forever()
+    else:
+        print("watch what happens next")
+        handler = RenderEngineFileEventHandler(server=server, server_address=server_address, app=app)
+        # server = handler.server
 
-        httpd = HTTPServer(server_address, server)
-        console.print(f"Serving [blue]{directory} on http://{server_address[0]}:{server_address[1]}")
-        console.print("Press [bold red]CTRL+C[/bold red] to stop serving!!!!")
-        return httpd.serve_forever()
+        w = Watcher(handler=handler, app=app)
+        w.run()
 
-
-    handler = RenderEngineHandler(HTTPServer, server, server_address)
-    handler.start_server()
-    console.print('WATCHING')
-    handler.watch()
 
 
 def cli():
