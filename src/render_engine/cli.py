@@ -337,13 +337,12 @@ def serve(
             render_engine_server=server,
             server_address=server_address,
             app=app,
-            patterns=[r".*\.md$"],  # Only watching for changes in .md files
-            ignore_patterns=None,
+            patterns=None,
+            ignore_patterns=[r".*output\\*.+$", r"\.\\\..+$"],
         )
 
         w = Watcher(handler=handler, app=app)
         w.run()
-
 
 def cli():
     app()

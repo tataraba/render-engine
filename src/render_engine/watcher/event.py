@@ -65,7 +65,7 @@ class RegExHandler(RegexMatchingEventHandler):
                 self.render_engine_server.close_request()
                 self.console.print("Server has been shutdown.")
                 self.app.render()
-
+                self.console.print("[yellow]Watching for file system changes...[/yellow]")
             self.console.print(f'File [bold green] {event.src_path} [/bold green] has been modified.')
             self.console.print(f"Modification on server: {self.render_engine_server.server_address}")
 
