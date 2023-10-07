@@ -34,7 +34,7 @@ def site(tmp_path):
     tmp_dir.mkdir()
     file = tmp_dir / "#"
     file.write_text("test")
-    
+
     site = Site()
 
     @site.collection
@@ -51,7 +51,7 @@ def feed_test_site(tmp_path):
     tmp_dir.mkdir()
     file = tmp_dir / "#"
     file.write_text("test")
-    
+
     site = Site()
 
     @site.collection
@@ -63,3 +63,9 @@ def feed_test_site(tmp_path):
     feed = site.route_list['testcollection'].feed
     feed_content = feed._render_content(engine=site.engine, SITE_URL="http://localhost:8000")
     return feed_content
+
+
+@pytest.fixture(scope="session")
+def basic_app_directory(tmp_path_factory):
+    temp_app_dir = tmp_path_factory.mktemp("test_app")
+    return temp_app_dir
