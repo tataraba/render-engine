@@ -20,10 +20,10 @@ class ThemeManager:
     Attributes:
         engine: Jinja2 Environment used to render pages
         output_path: path to write rendered content
-        static_paths: set of filepaths for static folders. 
-            This will get copied to the output folder. 
+        static_paths: set of filepaths for static folders.
+            This will get copied to the output folder.
             Folders are recursive.
-            
+
     """
     engine: Environment
     output_path: str = "output"
@@ -41,11 +41,13 @@ class ThemeManager:
             self.engine.loader.loaders.insert(0, theme.loader)
             self.static_paths.add(theme.static_dir)
             self.engine.filters.update(theme.filters)
-        
+
     def _render_static(self) -> None:
         """Copies a Static Directory to the output folder"""
         for static_path in self.static_paths:
             logging.debug(f"Copying Static Files from {static_path}")
+            if not static_path:
+                continue
             if pathlib.Path(static_path).exists():
                 shutil.copytree(
                     static_path,
