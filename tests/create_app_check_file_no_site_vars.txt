@@ -6,7 +6,7 @@ from render_engine import Site, Page, Collection
 
 app = Site()
 app.output_path = "output"
-app.static_path = "static"
+app.static_paths.add("")
 
 @app.page
 class Index(Page):
