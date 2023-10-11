@@ -15,7 +15,7 @@ class RenderEngineServer(SimpleHTTPRequestHandler):
         self.directory = directory
         super().__init__(*args, directory=directory, **kwargs)
 
-        self.server.shutdown()
+        # self.server.shutdown()
 
 class RegExHandler(RegexMatchingEventHandler):
     """
