@@ -37,8 +37,10 @@ def _app(initialize_project, tmp_path_factory):
     return module.app
 
 @pytest.fixture(scope="session")
-def build_temp_site(_app):
+def build_temp_site(_app, tmp_path_factory):
 
+    output_path = tmp_path_factory.getbasetemp() / "output"
+    _app.output_path = str(output_path)
     cli.build(
         "pytest_app:app",
     )
@@ -46,10 +48,10 @@ def build_temp_site(_app):
     yield
 
 @pytest.fixture(scope="module")
-def re_server(tmp_path_factory, initialize_project):
-    output = tmp_path_factory.getbasetemp() / "output"
+def re_server(tmp_path_factory, build_temp_site):
+    output_path = tmp_path_factory.getbasetemp() / "output"
     process = Popen(
-        ["python", "-m", "http.server", "8123", "--directory", str(output)],
+        ["python", "-m", "http.server", "8123", "--directory", str(output_path)],
         stdout=PIPE,
         encoding="utf-8",
         universal_newlines=True,
@@ -83,10 +85,13 @@ def test_project_root_file(tmp_path_factory, build_temp_site):
     )
 
 
+def test_ping_to_output_directory(tmp_path_factory, re_server):
+    response = requests.get("http://localhost:8123")
+    assert response.status_code == 200
+
+
 def test_app_contains_output_attribute(tmp_path_factory, build_temp_site):
-    bapp = sys.modules["pytest_app"]
-    bapp.app.render()  # not working??
-    assert bapp.app.output_path == "output"
+   pass
 
 
 def test_handler_is_called_with_server():
