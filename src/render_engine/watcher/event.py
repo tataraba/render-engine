@@ -1,7 +1,7 @@
 
 import threading
 import time
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from http.server import HTTPServer, SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 from rich.console import Console
 from watchdog.events import FileSystemEvent, RegexMatchingEventHandler
@@ -34,7 +34,7 @@ class RegExHandler(RegexMatchingEventHandler):
     """
     def __init__(
         self,
-        render_engine_server: RenderEngineServer,
+        render_engine_server: HTTPServer,
         server_address: tuple[int, int],
         app: Site,
         console: Console = Console(),

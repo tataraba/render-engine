@@ -76,6 +76,20 @@ def re_server(tmp_path_factory, build_temp_site):
 
 
 
+@pytest.fixture(scope="session")
+def regex_handler(_app) -> event.RegExHandler:
+
+    server_address = ("127.0.0.1", 8123)
+    _server = HTTPServer(server_address, event.RegExHandler)
+    return event.RegExHandler(
+        render_engine_server=_server,
+        server_address=server_address,
+        app=_app,
+        patterns=None,
+        ignore_patterns=[r".*output\\*.+$", r"\.\\\..+$"],
+    )
+
+
 
 def test_project_root_file(tmp_path_factory, build_temp_site):
    d = tmp_path_factory.getbasetemp()
@@ -86,16 +100,30 @@ def test_project_root_file(tmp_path_factory, build_temp_site):
 
 
 def test_ping_to_output_directory(tmp_path_factory, re_server):
-    response = requests.get("http://localhost:8123")
+    response = requests.get("http://127.0.0.1:8123")
     assert response.status_code == 200
 
 
-def test_app_contains_output_attribute(tmp_path_factory, build_temp_site):
-   pass
+
+def test_app_contains_output_attribute(_app):
+    assert "output" in _app.output_path
+
+def test_regex_handler_configuration(_app, regex_handler: event.RegExHandler):
+    assert regex_handler.app == _app
 
 
-def test_handler_is_called_with_server():
-    ...
+def test_handler_is_called_with_server(regex_handler: event.RegExHandler):
+    assert regex_handler.render_engine_server.server_address == ("127.0.0.1", 8123)
+
+def test_watcher_is_running(_app, regex_handler: event.RegExHandler):
+
+    w = event.Watcher(
+        handler=regex_handler,
+        app=_app,
+    )
+
+    w.run()  # I believe this needs to be started in another thread?
+    assert w.observer.is_alive()
 
 def test_file_change_causes_server_to_restart():
     ...
