@@ -4,7 +4,7 @@ import importlib
 import pathlib
 import sys
 import typing
-from http.server import HTTPServer
+from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 import dtyper
 import typer
@@ -13,7 +13,7 @@ from rich.progress import Progress
 
 from render_engine.engine import engine
 from render_engine.site import Site
-from render_engine.watcher import RegExHandler, RenderEngineServer, Watcher
+from render_engine.watcher import RegExHandler
 
 app = typer.Typer()
 
@@ -313,7 +313,7 @@ def serve(
         directory: Directory to serve. If `module_site` is provided, this will be the `output_path` of the site.
         port: Port to serve on
     """
-
+    console = Console()
 
     if module_site:
         app = get_app(module_site)
@@ -325,24 +325,25 @@ def serve(
         else:
             directory = 'output'
 
-    console = Console()
-    server_address = ("localhost", port)
-    server = HTTPServer(server_address, RenderEngineServer)
-
-    if not reload:
-        server.serve_forever()
-    else:
-        console.print("watch what happens next")
-        handler = RegExHandler(
-            render_engine_server=server,
+    server_address = ("127.0.0.1", port)
+    print("before handler init")
+    handler = RegExHandler(
             server_address=server_address,
+            dir_to_serve=directory,
             app=app,
             patterns=None,
             ignore_patterns=[r".*output\\*.+$", r"\.\\\..+$"],
         )
 
-        w = Watcher(handler=handler, app=app)
-        w.run()
+    print("after handler init")
+    if not reload:
+        # print(handler.server_func)
+        pass
+    else:
+        print("with reload")
+        console.print("watch what happens next")
+
+        handler.watch()
 
 def cli():
     app()

@@ -2,6 +2,7 @@
 import threading
 import time
 from http.server import HTTPServer, SimpleHTTPRequestHandler, ThreadingHTTPServer
+from multiprocessing import Process
 
 from rich.console import Console
 from watchdog.events import FileSystemEvent, RegexMatchingEventHandler
@@ -9,13 +10,26 @@ from watchdog.observers import Observer
 
 from render_engine import Site
 
+console = Console()
 
-class RenderEngineServer(SimpleHTTPRequestHandler):
-    def __init__(self, directory: str, *args, **kwargs):
-        self.directory = directory
-        super().__init__(*args, directory=directory, **kwargs)
 
-        # self.server.shutdown()
+
+
+def server_func(server_address: tuple[int, int], directory: str):
+
+    class _RequestHandler(SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=directory, **kwargs)
+
+    def _httpd():
+        console.print(f"Servin from server func: '{directory}' on http://{server_address[0]}:{server_address[1]}")
+        httpd = HTTPServer(server_address, _RequestHandler)
+        httpd.serve_forever()
+
+    return _httpd
+
+
+
 
 class RegExHandler(RegexMatchingEventHandler):
     """
@@ -23,10 +37,10 @@ class RegExHandler(RegexMatchingEventHandler):
     paths that are associated with the given events.
 
     Args:
-        render_engine_server (RenderEngineServer): Instance of render engine server.
+        render_engine_server (HTTPServer): Instance of render engine server.
         server_address (tuple[int, int]): The server address.
         app (Site): The Site instance of the application.
-        console (Console, optional): The console. Defaults to Console().
+        console (Console, optional): The Rich console for pretty printing of console messages. Defaults to Console().
         patterns (list[str] | None, optional): Regexes to allow matching event paths. Defaults to None.
         ignore_patterns (list[str] | None, optional): Regexes to ignore matching event paths. Defaults to None.
         *args: Variable length argument list.
@@ -34,19 +48,19 @@ class RegExHandler(RegexMatchingEventHandler):
     """
     def __init__(
         self,
-        render_engine_server: HTTPServer,
         server_address: tuple[int, int],
+        dir_to_serve: str,
         app: Site,
-        console: Console = Console(),
         patterns: [list[str] | None] = None,
         ignore_patterns: [list[str] | None] = None,
         *args,
         **kwargs
     ):
-        self.render_engine_server = render_engine_server
+        self.p = None
+        self.server_func = server_func(server_address, dir_to_serve)
+        self.dir_to_serve = dir_to_serve,
         self.server_address = server_address
         self.app = app
-        self.console = console
         self.patterns = patterns
         self.ignore_patterns = ignore_patterns
         super().__init__(
@@ -55,72 +69,54 @@ class RegExHandler(RegexMatchingEventHandler):
             ignore_regexes=ignore_patterns,
             **kwargs
         )
+
+    def show_types(self):
+        print(f"SHOW TYPES: {type(self.server_func)=} and {type(server_func)=}")
+
+    def stop_server(self):
+        if self.p:
+            console.print("[bold red]Stopping server[/bold red]")
+            self.p.terminate()
+            self.p = None
+
+    def start_server(self):
+        if self.p:
+            self.stop_server()
+
+        console.print("[bold green]Starting server[/bold green]")
+        self.p = Process(target=self.server_func)
+        self.p.start()
+        print("thread started")
+
+    def rebuild(self):
+        console.print(f"[bold green]Rendering site...[/bold green]")
+        self.app.render()
+
     def on_any_event(self, event: FileSystemEvent):
         if event.is_directory:
             return None
-
-        elif event.event_type == "modified":
-            def shutdown_server():
-                self.render_engine_server.shutdown()
-                self.render_engine_server.close_request()
-                self.console.print("Server has been shutdown.")
-                self.app.render()
-                self.console.print("[yellow]Watching for file system changes...[/yellow]")
-            self.console.print(f'File [bold green] {event.src_path} [/bold green] has been modified.')
-            self.console.print(f"Modification on server: {self.render_engine_server.server_address}")
-
-            shutdown_thread = threading.Thread(target=shutdown_server)
-            shutdown_thread.start()
-
-            self.console.print("Server has been shutdown.")
-            self.render_engine_server.server_close()
-            self.console.print('Server has been closed.\n[green]Rendering site again ...[/green]')
-            self.app.render()
-
-            self.httpd = ThreadingHTTPServer(self.server_address, RenderEngineServer)
-            threading.Thread(target=self.httpd.serve_forever).start()
+        if event.event_type == "modified":
+            self.rebuild()
 
 
 
+    def watch(self):
+        console.print(f'[yellow]Serving {self.app.output_path}[/yellow]')
 
-class Watcher:
-    """
-    Watcher class for monitoring file system changes.
+        self.start_server()
+        observer = Observer()
+        observer.schedule(self, ".", recursive=True)
+        observer.start()
 
-    Args:
-        handler (RegExHandler): The handler for matching regexes with events.
-        app: The application instance.
-        directory (str): The directory to watch.
-
-    Attributes:
-        observer (Observer): The file system observer.
-        handler (RegExHandler): The handler for matching regexes with events.
-        app: The application instance.
-        directory (str): The directory to watch.
-        console: Rich console for pretty printing to console.
-
-    Methods:
-        run(): Starts the file system observer and begins watching for changes.
-    """
-    def __init__(self, handler: RegExHandler, app, directory=".",):
-        self.observer = Observer()
-        self.handler = handler
-        self.app = app
-        self.directory = directory
-        self.console = Console()
-
-
-    def run(self):
-        self.observer.schedule(self.handler, self.directory, recursive=True)
-        self.observer.start()
-
-        self.console.print('[yellow]Watching for file system changes...[/yellow]')
         try:
             while True:
+                print("waiting")
                 time.sleep(1)
         except KeyboardInterrupt:
-            self.console.print("watcher terminated by keystroke")
-            self.observer.stop()
-        self.observer.join()
-        self.console.print('[bold red]FIN![/bold red]')
+            console.print("watcher terminated by keystroke")
+            observer.stop()
+        observer.join()
+        console.print('[bold red]FIN![/bold red]')
+
+#
 

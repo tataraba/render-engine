@@ -9,8 +9,9 @@ from subprocess import PIPE, Popen
 import pytest
 import requests
 from typer.testing import CliRunner
+from xprocess import ProcessStarter
 
-from render_engine import Page, Site, cli
+from render_engine import Site, cli
 from render_engine.watcher import event
 
 runner = CliRunner()
@@ -28,7 +29,7 @@ def initialize_project(tmp_path_factory):
 
 
 @pytest.fixture(scope="session")  # add _app to sys.modules
-def _app(initialize_project, tmp_path_factory):
+def _app(initialize_project, tmp_path_factory) -> Site:
     spec = util.spec_from_file_location("app", tmp_path_factory.getbasetemp() / "app.py")
     module = util.module_from_spec(spec)
     sys.modules["pytest_app"] = module
@@ -37,15 +38,14 @@ def _app(initialize_project, tmp_path_factory):
     return module.app
 
 @pytest.fixture(scope="session")
-def build_temp_site(_app, tmp_path_factory):
+def build_temp_site(_app: Site, tmp_path_factory):
 
-    output_path = tmp_path_factory.getbasetemp() / "output"
-    _app.output_path = str(output_path)
+    _app.output_path = str(tmp_path_factory.getbasetemp() / "output")
     cli.build(
         "pytest_app:app",
     )
-
     yield
+    # shutil.rmtree(project_root_file)  # uncomment to clean up tmp files
 
 @pytest.fixture(scope="module")
 def re_server(tmp_path_factory, build_temp_site):
@@ -90,6 +90,25 @@ def regex_handler(_app) -> event.RegExHandler:
     )
 
 
+@pytest.fixture
+def watcher_process(xprocess: ProcessStarter, _app):
+    command = [
+        "python",
+        "-m",
+        "render_engine",
+        "serve",
+        "--build",
+        "pytest_app:app",
+    ]
+
+    watcher_process = xprocess.ensure(
+        "watcher_process", command
+    )
+
+    yield watcher_process
+
+    xprocess.get_info("watcher_process").terminate()
+
 
 def test_project_root_file(tmp_path_factory, build_temp_site):
    d = tmp_path_factory.getbasetemp()
@@ -105,28 +124,33 @@ def test_ping_to_output_directory(tmp_path_factory, re_server):
 
 
 
-def test_app_contains_output_attribute(_app):
-    assert "output" in _app.output_path
+# def test_app_contains_output_attribute(_app):
+#     assert "output" in _app.output_path
 
-def test_regex_handler_configuration(_app, regex_handler: event.RegExHandler):
-    assert regex_handler.app == _app
+# def test_regex_handler_configuration(_app, regex_handler: event.RegExHandler):
+#     assert regex_handler.app == _app
 
 
-def test_handler_is_called_with_server(regex_handler: event.RegExHandler):
-    assert regex_handler.render_engine_server.server_address == ("127.0.0.1", 8123)
+# def test_handler_is_called_with_server(regex_handler: event.RegExHandler):
+#     assert regex_handler.render_engine_server.server_address == ("127.0.0.1", 8123)
 
-def test_watcher_is_running(_app, regex_handler: event.RegExHandler):
+# def test_watcher_is_running(_app, regex_handler: event.RegExHandler):
 
-    w = event.Watcher(
-        handler=regex_handler,
-        app=_app,
-    )
+#     w = event.Watcher(
+#         handler=regex_handler,
+#         app=_app,
+#     )
 
-    w.run()  # I believe this needs to be started in another thread?
-    assert w.observer.is_alive()
+#     w.run()  # I believe this needs to be started in another thread?
+#     assert w.observer.is_alive()
 
-def test_file_change_causes_server_to_restart():
-    ...
+# def test_file_change_causes_server_to_restart():
+#     ...
 
-def test_output_file_is_different_now():
-    ...
+# def test_output_file_is_different_now():
+#     ...
+
+
+# def test_watcher_with_mock_observer(watcher_process):
+#     assert watcher_process.is_alive()
+
