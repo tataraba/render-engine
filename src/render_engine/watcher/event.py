@@ -36,7 +36,6 @@ def spawn_server(server_address: tuple[int, int], directory: str) -> ThreadingHT
             super().__init__(*args, directory=directory, **kwargs)
 
     def _httpd() -> ThreadingHTTPServer:
-        console.print(f"Servin from server func: '{directory}' on http://{server_address[0]}:{server_address[1]}")
         return ThreadingHTTPServer(server_address, _RequestHandler)
     return _httpd()
 
@@ -67,7 +66,7 @@ class RegExHandler(RegexMatchingEventHandler):
     ):
         self.p = None
         # self.server_func = server_func(server_address, dir_to_serve)
-        self.server_threaded = spawn_server(server_address, dir_to_serve)
+        self.server = spawn_server(server_address, dir_to_serve)
         self.dir_to_serve = dir_to_serve,
         self.server_address = server_address
         self.app = app
@@ -83,27 +82,25 @@ class RegExHandler(RegexMatchingEventHandler):
 
     def start_server(self):
         console.print("[bold green]Starting threaded server[/bold green]")
-        self._thread = threading.Thread(target=self.server_threaded.serve_forever)
+        self._thread = threading.Thread(target=self.server.serve_forever)
         self._thread.start()
 
     def stop_server(self):
         console.print("[bold red]Stopping server[/bold red]")
-        self.server_threaded.shutdown()
-        self.server_threaded.server_close()
+        self.server.shutdown()
+        self.server.server_close()
         self._thread.join()
 
     def rebuild(self):
-        console.print(f"[bold pink]Reloading and Rebuilding site...[/bold pink]")
-        # self.stop_server()
+        console.print(f"[bold purple]Reloading and Rebuilding site...[/bold purple]")
         self.app.render()
-        # self.start_server()
+
 
     def on_any_event(self, event: FileSystemEvent):
         print("HERERERERE")
         if event.is_directory:
             return None
         if event.event_type == "modified":
-
             self.rebuild()
 
 
@@ -111,7 +108,6 @@ class RegExHandler(RegexMatchingEventHandler):
 
         console.print(f'[yellow]Serving {self.app.output_path}[/yellow]')
 
-        self.start_server()
         observer = Observer()
         observer.schedule(self, ".", recursive=True)
         self.start_server()
