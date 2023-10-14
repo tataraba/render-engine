@@ -15,21 +15,32 @@ console = Console()
 
 
 
-def server_func(server_address: tuple[int, int], directory: str):
+# def server_func(server_address: tuple[int, int], directory: str):
+
+#     class _RequestHandler(SimpleHTTPRequestHandler):
+#         def __init__(self, *args, **kwargs):
+#             super().__init__(*args, directory=directory, **kwargs)
+
+#     def _httpd():
+#         console.print(f"Servin from server func: '{directory}' on http://{server_address[0]}:{server_address[1]}")
+#         httpd = HTTPServer(server_address, _RequestHandler)
+#         httpd.serve_forever()
+
+#     return _httpd
+
+
+def server_threaded(server_address: tuple[int, int], directory: str) -> ThreadingHTTPServer:
 
     class _RequestHandler(SimpleHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, directory=directory, **kwargs)
 
-    def _httpd():
+    def _httpd() -> ThreadingHTTPServer:
         console.print(f"Servin from server func: '{directory}' on http://{server_address[0]}:{server_address[1]}")
-        httpd = HTTPServer(server_address, _RequestHandler)
-        httpd.serve_forever()
+        httpd = ThreadingHTTPServer(server_address, _RequestHandler)
+        return httpd
 
-    return _httpd
-
-
-
+    return _httpd()
 
 class RegExHandler(RegexMatchingEventHandler):
     """
@@ -57,7 +68,8 @@ class RegExHandler(RegexMatchingEventHandler):
         **kwargs
     ):
         self.p = None
-        self.server_func = server_func(server_address, dir_to_serve)
+        # self.server_func = server_func(server_address, dir_to_serve)
+        self.server_threaded = server_threaded(server_address, dir_to_serve)
         self.dir_to_serve = dir_to_serve,
         self.server_address = server_address
         self.app = app
@@ -70,44 +82,52 @@ class RegExHandler(RegexMatchingEventHandler):
             **kwargs
         )
 
-    def show_types(self):
-        print(f"SHOW TYPES: {type(self.server_func)=} and {type(server_func)=}")
 
     def stop_server(self):
-        if self.p:
-            console.print("[bold red]Stopping server[/bold red]")
-            self.p.terminate()
-            self.p = None
+        # if self.p:
+        console.print("[bold red]Stopping server[/bold red]")
+        self.server_threaded.shutdown()
+        self.server_threaded.server_close()
+        self.p = False
 
     def start_server(self):
         if self.p:
             self.stop_server()
 
+
         console.print("[bold green]Starting server[/bold green]")
-        self.p = Process(target=self.server_func)
-        self.p.start()
+        self.server_threaded.serve_forever()
+        # self.p = True
+
+        # self.p = Process(target=self.server_func)
+        # self.p.start()
         print("thread started")
 
     def rebuild(self):
-        console.print(f"[bold green]Rendering site...[/bold green]")
+        console.print("[bold gold]Reloading and Rebuilding site...[/bold gold]")
+        self.stop_server()
         self.app.render()
+        self.start_server()
 
     def on_any_event(self, event: FileSystemEvent):
+        print("HERERERERE")
         if event.is_directory:
             return None
         if event.event_type == "modified":
+
             self.rebuild()
 
 
 
     def watch(self):
+
         console.print(f'[yellow]Serving {self.app.output_path}[/yellow]')
 
-        self.start_server()
+
         observer = Observer()
         observer.schedule(self, ".", recursive=True)
         observer.start()
-
+        self.start_server()
         try:
             while True:
                 print("waiting")
@@ -115,8 +135,7 @@ class RegExHandler(RegexMatchingEventHandler):
         except KeyboardInterrupt:
             console.print("watcher terminated by keystroke")
             observer.stop()
+
         observer.join()
         console.print('[bold red]FIN![/bold red]')
-
-#
 

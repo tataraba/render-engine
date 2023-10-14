@@ -82,8 +82,8 @@ def regex_handler(_app) -> event.RegExHandler:
     server_address = ("127.0.0.1", 8123)
     _server = HTTPServer(server_address, event.RegExHandler)
     return event.RegExHandler(
-        render_engine_server=_server,
         server_address=server_address,
+        dir_to_serve=_app.output_path,
         app=_app,
         patterns=None,
         ignore_patterns=[r".*output\\*.+$", r"\.\\\..+$"],
