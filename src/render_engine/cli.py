@@ -326,7 +326,7 @@ def serve(
             directory = 'output'
 
     server_address = ("127.0.0.1", port)
-    print("before handler init")
+
     handler = RegExHandler(
             server_address=server_address,
             dir_to_serve=directory,
@@ -335,14 +335,12 @@ def serve(
             ignore_patterns=[r".*output\\*.+$", r"\.\\\..+$"],
         )
 
-    print("after handler init")
-    if not reload:
-        # print(handler.server_func)
-        pass
-    else:
-        print("with reload")
-        console.print("watch what happens next")
 
+    if not reload:
+        console.print(f"[bold green]Starting server on http://{server_address[0]}:{server_address[1]}[/bold green]")
+        handler._server.serve_forever()
+    else:
+        console.print("Watching for changes...")
         handler.watch()
 
 def cli():
